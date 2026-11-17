@@ -56,3 +56,12 @@
 - **Tests:** The user ran `uv run pytest tests/test_mcp_client.py -v`; Tests 4 and 5 passed.
 - **Bugs/issues found:** none found.
 - **Fixes:** none.
+
+## Phase 9: Security tests
+- **Prompt:** "next"
+- **Generated:** `tests/test_security.py`.
+  - **Test 6** runs 15 SQL attacks (DROP, UPDATE, INSERT, DELETE, lowercase, stacked `;`, `/**/` and `--` comments, ATTACH, PRAGMA, a CTE followed by DELETE, empty input) through the MCP tool function. Each must return a `SecurityException` error, and `validate_query` must raise. A defense-in-depth test disables the validator to show that the read-only connection and authorizer still block writes, and a check confirms row counts are unchanged after all attacks.
+  - **Test 7** runs 16 math payloads (`__import__`, dunder or attribute chains, `open`/`eval`/`exec`/`globals`, lambda, comprehension, walrus, string and bool constants, ternary, keyword arguments, a huge power). Each must return `UnsafeExpressionError` with no result. Statements and malformed input must return `SyntaxError`.
+- **Tests:** The user ran `uv run pytest -v`; all 41 tests passed (3 tool tests, 2 client tests, 36 security tests).
+- **Bugs/issues found:** none found.
+- **Fixes:** none.
