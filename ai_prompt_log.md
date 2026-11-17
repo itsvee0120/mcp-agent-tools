@@ -65,3 +65,28 @@
 - **Tests:** The user ran `uv run pytest -v`; all 41 tests passed (3 tool tests, 2 client tests, 36 security tests).
 - **Bugs/issues found:** none found.
 - **Fixes:** none.
+
+## Phase 10: AI audit
+
+### Initial prompt
+The code was generated with Claude Code (Claude Opus 5.5), working phase by phase. The anchor prompt was `PLAN.md` (stack, security rules, phases), together with the assignment text in `ASSIGNMENT.md`. Each phase was started with a short prompt ("next", "yes", "use antrhopic instead"); these are logged per phase above. The assignment's sample prompt was not pasted verbatim. Its requirements (read-only SQLite URI, AST math without eval/exec, `list_tools()` discovery, multi-turn loop with `max_turns=5`) were part of `PLAN.md` from the start.
+
+### Flaws found in the AI-generated code (all real, from this project)
+1. **API hallucination risk: FastMCP import (Phase 6).** The plan and assignment both say `from mcp.server.fastmcp import FastMCP`. In the installed `mcp` 2.3.0 that module only raises `ModuleNotFoundError` (FastMCP was renamed `MCPServer`). Code written from memory would have crashed the server at import time.
+   - **Refactor:** Checked the installed SDK source and used `from mcp.server.mcpserver import MCPServer`, confirming that its `@tool()` decorator returns the original function. The user chose to stay on 2.x.
+2. **Math evaluator crashed on valid input (Phase 4).** (a) The first size cap allowed results of up to 10,000 digits, but Python 3.11 refuses to convert integers over 4,300 digits to strings, so `json.dumps` would fail. (b) `(-8) ** 0.5` yields a `complex`, which isn't JSON-serializable.
+   - **Refactor:** Cap of 4,000 digits, enforced before computing a power (`_check_power`, using a log10 estimate). Complex results are rejected with a clear `ValueError`.
+3. **Input validation too strict (Phase 5).** The first city regex rejected real names like "St. Louis".
+   - **Refactor:** Separators of 1–2 characters are now allowed between name parts.
+4. **Project scaffolding (Phase 1).** `uv init` produced `requires-python >= 3.13` (which made the 3.11 pin fail), an unused packaged layout (`src/mcp_agent_tools`, `[project.scripts]`, `[build-system]`), and the author's name and email in `pyproject.toml`, which would have been published.
+   - **Refactor:** Set `>=3.11`, removed the package leftovers and removed the `authors` block.
+5. **Wrong shell syntax (Phase 4).** A verification command used bash `\"` quoting, which PowerShell misparsed and tried to execute itself.
+   - **Refactor:** Switched to a PowerShell here-string piped to `uv run python -`.
+
+### Required audit checklist (final code, verified by tests)
+| Risk | What the code does | Evidence |
+|---|---|---|
+| SQL injection / read-only bypass | Not substring-only. One statement only (any `;` except a single trailing one is rejected), no `--`/`/* */`, must start with `SELECT`, whole-word keyword blocklist, **plus** a `mode=ro` URI connection, **plus** a SQLite authorizer allowing only SELECT/READ/FUNCTION, 5 s timeout, 100-row cap. | Test 6: 15 attacks rejected; with the validator disabled, writes are still blocked; row counts unchanged. |
+| Math ACE (`eval`, `__import__`) | `ast.parse(mode="eval")` + whitelist `NodeVisitor`; `generic_visit` rejects every other node. No `eval`, `exec` or `numexpr` anywhere. Calls allowed only on a bare whitelisted function name with no keywords. | Test 7: 16 payloads rejected, including `__import__('os').listdir('.')` and subclass escapes. |
+| Schema translation mismatch | MCP `input_schema` maps to Anthropic `{name, description, input_schema}`; tools come from `list_tools()` (with pagination), never hardcoded. The 2.x snake_case attribute names were checked against the SDK source. | Test 4 checks shape and schemas; Test 5 checks that the discovered tools reach the LLM request. |
+| Infinite loops / state growth | Hard `max_turns=5`; tool errors become `tool_result` with `is_error` (never raised); API errors, refusals and the turn limit return an `AgentResult` instead of crashing. Per-tool timeouts (SQL 5 s, math 2 s, weather 10/20 s, MCP call 30 s). | Test 5: SQL then Math finishes in 3 turns with an `assistant` message last. |
