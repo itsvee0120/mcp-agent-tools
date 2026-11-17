@@ -23,3 +23,9 @@
 - **Generated:** `src/server/tools/sql_tool.py`, which provides `validate_query()`, `run_query()` and `SecurityException`. Defense layers: one statement only (a single trailing `;` is allowed); no `--`, `/*` or `*/`; must start with `SELECT`; forbidden keywords matched as whole words; read-only URI (`mode=ro`); a SQLite authorizer that allows only SELECT/READ/FUNCTION; a 5 s timeout via a progress handler; a 100-row limit. It returns JSON results or a JSON `{"error": {type, message}}` and never raises.
 - **Bugs/issues found:** none found (no tests yet; Tests 1 and 6 come in Phases 6 and 9).
 - **Fixes:** none.
+
+## Phase 4: Math tool
+- **Prompt:** "next"
+- **Generated:** `src/server/tools/math_tool.py`, which provides `evaluate()`, `calculate()` and `UnsafeExpressionError`. It parses with `ast.parse(mode="eval")` and evaluates with a whitelist `NodeVisitor`: Expression, BinOp (+ - * / // % **), UnaryOp (+ -), numeric Constant (no bool), Call to whitelisted math functions only (no keywords), and Name for `pi`/`e` only. Anything else, such as Attribute or `__import__`, is rejected by `generic_visit`. There is no `eval`, `exec` or `numexpr`. It has a 2 s deadline checked at each node, a 300-character input limit, and a power-size guard. It returns JSON results or a JSON error and never raises.
+- **Bugs/issues found (self-review before handoff):** (1) The first draft allowed results up to 10,000 digits, but Python 3.11 refuses to convert integers over 4,300 digits to strings, so `json.dumps` would fail. (2) A negative base with a fractional exponent, e.g. `(-8) ** 0.5`, yields a complex number, which isn't JSON-serializable.
+- **Fixes:** Lowered the digit limit to 4,000. Complex results are now rejected with a clear error.
