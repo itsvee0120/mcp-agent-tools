@@ -1,11 +1,11 @@
 # mcp-agent-tools
 
-MCP-backed tool-augmented AI assistant: FastMCP server (read-only SQL, live weather, safe AST math), stdio MCP client, OpenAI function-calling loop, Streamlit UI.
+MCP-backed tool-augmented AI assistant: MCP server (read-only SQL, live weather, safe AST math), stdio MCP client, Claude (Anthropic API) tool-calling loop, Streamlit UI.
 
 ## Setup
 ```
 uv sync
-cp .env.example .env   # then add your OPENAI_API_KEY
+cp .env.example .env   # then add your ANTHROPIC_API_KEY
 ```
 
 ## Run

@@ -1,7 +1,7 @@
 """MCP client: launches the server over stdio, discovers tools, calls them.
 
 Tools are always discovered via ``session.list_tools()`` (never hardcoded) and
-mapped from MCP ``inputSchema`` to OpenAI function-calling definitions.
+mapped from MCP ``inputSchema`` to Anthropic Messages API tool definitions.
 """
 
 import sys
@@ -25,18 +25,15 @@ def default_server_params() -> StdioServerParameters:
     )
 
 
-def mcp_tool_to_openai(tool: types.Tool) -> dict[str, Any]:
-    """Map one MCP tool definition to the OpenAI tool format."""
-    parameters = dict(tool.input_schema or {})
-    parameters.setdefault("type", "object")
-    parameters.setdefault("properties", {})
+def mcp_tool_to_anthropic(tool: types.Tool) -> dict[str, Any]:
+    """Map one MCP tool definition to the Anthropic tool format."""
+    input_schema = dict(tool.input_schema or {})
+    input_schema.setdefault("type", "object")
+    input_schema.setdefault("properties", {})
     return {
-        "type": "function",
-        "function": {
-            "name": tool.name,
-            "description": tool.description or "",
-            "parameters": parameters,
-        },
+        "name": tool.name,
+        "description": tool.description or "",
+        "input_schema": input_schema,
     }
 
 
@@ -85,9 +82,9 @@ class MCPClient:
         self.tools = tools
         return tools
 
-    async def get_openai_tools(self) -> list[dict[str, Any]]:
-        """Discover tools and return them as OpenAI tool definitions."""
-        return [mcp_tool_to_openai(t) for t in await self.list_tools()]
+    async def get_anthropic_tools(self) -> list[dict[str, Any]]:
+        """Discover tools and return them as Anthropic tool definitions."""
+        return [mcp_tool_to_anthropic(t) for t in await self.list_tools()]
 
     async def call_tool(self, name: str, arguments: dict[str, Any] | None) -> str:
         """Call a discovered tool and return its text output (never raises)."""
