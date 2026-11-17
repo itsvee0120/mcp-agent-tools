@@ -9,6 +9,7 @@
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -84,8 +85,12 @@ async def run_agent(
     llm_client: Any | None = None,
     model: str = MODEL,
     max_turns: int = MAX_TURNS,
+    on_tool_call: Callable[[ToolCallRecord], None] | None = None,
 ) -> AgentResult:
-    """Run the tool-calling loop until Claude gives a final answer or max_turns is hit."""
+    """Run the tool-calling loop until Claude gives a final answer or max_turns is hit.
+
+    ``on_tool_call`` (optional) is called after each tool call, e.g. to update a live UI.
+    """
     llm = llm_client or create_llm_client()
     tools = await mcp_client.get_anthropic_tools()
     messages: list[dict[str, Any]] = [{"role": "user", "content": user_prompt}]
@@ -129,9 +134,10 @@ async def run_agent(
             output = await mcp_client.call_tool(block.name, arguments)
             latency_ms = (time.perf_counter() - start) * 1000
             is_error = _looks_like_error(output)
-            tool_calls.append(
-                ToolCallRecord(turn, block.id, block.name, arguments, output, is_error, latency_ms)
-            )
+            record = ToolCallRecord(turn, block.id, block.name, arguments, output, is_error, latency_ms)
+            tool_calls.append(record)
+            if on_tool_call is not None:
+                on_tool_call(record)
             result = {"type": "tool_result", "tool_use_id": block.id, "content": output}
             if is_error:
                 result["is_error"] = True

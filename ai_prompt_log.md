@@ -90,3 +90,15 @@ The code was generated with Claude Code (Claude Opus 5.5), working phase by phas
 | Math ACE (`eval`, `__import__`) | `ast.parse(mode="eval")` + whitelist `NodeVisitor`; `generic_visit` rejects every other node. No `eval`, `exec` or `numexpr` anywhere. Calls allowed only on a bare whitelisted function name with no keywords. | Test 7: 16 payloads rejected, including `__import__('os').listdir('.')` and subclass escapes. |
 | Schema translation mismatch | MCP `input_schema` maps to Anthropic `{name, description, input_schema}`; tools come from `list_tools()` (with pagination), never hardcoded. The 2.x snake_case attribute names were checked against the SDK source. | Test 4 checks shape and schemas; Test 5 checks that the discovered tools reach the LLM request. |
 | Infinite loops / state growth | Hard `max_turns=5`; tool errors become `tool_result` with `is_error` (never raised); API errors, refusals and the turn limit return an `AgentResult` instead of crashing. Per-tool timeouts (SQL 5 s, math 2 s, weather 10/20 s, MCP call 30 s). | Test 5: SQL then Math finishes in 3 turns with an `assistant` message last. |
+
+## Phase 11: Streamlit UI
+- **Prompt:** "next phas"
+- **Generated:** `src/app.py` with:
+  - **Sidebar MCP Inspector:** tools from `list_tools()` with their descriptions and JSON schemas, plus a refresh button.
+  - **Operator Console tab:** chat input, a one-click example prompt (the Seattle / SKU-90210 / #4492 scenario), and run history.
+  - **Live tool-call timeline:** one expander per call showing Step 1 (arguments chosen by the LLM), Step 2 (the raw MCP payload) and Step 3 (iteration, latency, `tool_use_id`).
+  - **Security Workbench tab:** the two required probes. Each can be run as a direct MCP tool call (no LLM; shows the "Blocked by security layer" badge, the raw payload, and a health check showing the server is alive and the inventory table intact) or through the agent.
+
+  `agent_loop.run_agent()` gained an optional `on_tool_call` callback so the UI shows each call as it happens. Each UI action opens a fresh stdio MCP session (simple; no shared event loop across Streamlit reruns). `app.py` adds the project root to `sys.path` because `streamlit run src/app.py` only adds `src/`.
+- **Bugs/issues found:** none found (UI not yet run).
+- **Fixes:** none.
