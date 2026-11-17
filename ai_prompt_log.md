@@ -100,5 +100,30 @@ The code was generated with Claude Code (Claude Opus 5.5), working phase by phas
   - **Security Workbench tab:** the two required probes. Each can be run as a direct MCP tool call (no LLM; shows the "Blocked by security layer" badge, the raw payload, and a health check showing the server is alive and the inventory table intact) or through the agent.
 
   `agent_loop.run_agent()` gained an optional `on_tool_call` callback so the UI shows each call as it happens. Each UI action opens a fresh stdio MCP session (simple; no shared event loop across Streamlit reruns). `app.py` adds the project root to `sys.path` because `streamlit run src/app.py` only adds `src/`.
-- **Bugs/issues found:** none found (UI not yet run).
+- **Tests:** The user ran the UI and confirmed it works ("good").
+- **Bugs/issues found:** none found.
+- **Fixes:** none.
+
+## Phase 12: Deployment (Option A, Docker)
+- **Prompt:** "good next", then the user chose Docker.
+- **Generated:**
+  - `Dockerfile`: `python:3.11-slim` plus the `uv` binary; `uv sync --frozen` in a cached layer; copies `src`, `data` and `tests`; runs as non-root `appuser`; Streamlit on port 8501. The MCP server runs as a stdio child process supervised by the Streamlit client inside the container.
+  - `docker-compose.yml`: one `app` service; `.env` injected at runtime via `env_file` (optional); healthcheck on `/_stcore/health`.
+  - `.dockerignore`: excludes `.env*` (except `.env.example`), `.streamlit/secrets.toml`, `.git`, `.venv`, `.claude`, caches and local planning docs, so secrets never enter the image.
+  - README: Docker run line.
+- **Follow-up:** The user asked for no GPU if it isn't needed. Confirmed CPU-only (`python:3.11-slim`, no GPU reservation, no torch/nvidia/CUDA packages in `uv.lock`). No change needed.
+- **Tests:** The user built and ran it with `docker compose up --build` and confirmed it works ("good").
+- **Bugs/issues found:** none found.
+- **Fixes:** none.
+
+## Phase 13: README
+- **Prompt:** "continure"
+- **Generated:** Full `README.md`: overview with the example scenario, a Mermaid architecture/topology diagram (UI, agent loop, Claude, MCP client, stdio, MCP server, tools, SQLite/Open-Meteo), project layout, a tools table with guardrails, setup and secrets (`.env` from `.env.example`, `ANTHROPIC_API_KEY`), run commands (tests, UI, server, Docker), UI overview, a tests table (1–7), an AI audit summary and the tech stack.
+- **Bugs/issues found:** none found.
+- **Fixes:** none.
+
+## Phase 14: Video + submission (prep)
+- **Prompt:** "good, next"
+- **Generated:** `VIDEO_SCRIPT.md`: a timed ~6:00 script (architecture 0:00–1:00, AI audit 1:00–2:30, live demo 2:30–4:00, security red-team 4:00–5:30, `pytest -v` 5:30–6:00) with what to show and say, plus the submission template filled in (stdio, 3 tools, `claude-opus-5-5`, Docker Option A). Name, repo URL, video link and duration are left as placeholders for the user.
+- **Bugs/issues found:** none found.
 - **Fixes:** none.

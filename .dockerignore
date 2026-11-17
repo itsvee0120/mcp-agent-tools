@@ -1,0 +1,18 @@
+# Secrets: never copy into the image
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Local tooling / caches
+.git
+.venv
+.claude
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local planning docs
+PLAN.md
+ASSIGNMENT.md
+CLAUDE.md
